@@ -1,5 +1,5 @@
 import sys
-import math
+import time
 
 # A heap class that can be initialized to work as a Max-heap or a min-heap
 class Heap(object):
@@ -110,6 +110,7 @@ class RunningMedianCounter(object):
     def __init__(self):
         self.__leftMaxHeap = Heap(True)
         self.__rightMinHeap = Heap(False)
+        self.__total = 0      # Holds the current sum of all values in the 2 heaps
 
     def __balance_heaps(self):
         # If right min heap is larger than left max heap by more than 1
@@ -141,6 +142,7 @@ class RunningMedianCounter(object):
             else:
                 self.__rightMinHeap.insert(value)
 
+        self.__total += value
         self.__balance_heaps()
         return
 
@@ -156,9 +158,16 @@ class RunningMedianCounter(object):
         else:
             return round(self.__rightMinHeap.get_root_val())
 
+    def size(self):
+        return self.__leftMaxHeap.size() + self.__rightMinHeap.size()
+
+    def get_current_total(self):
+        return self.__total
+
     def print_heaps(self):
         self.__leftMaxHeap.printheap()
         self.__rightMinHeap.printheap()
+
 
 class DataProcessor(object):
     # 0 based indices for the required columns
@@ -189,12 +198,91 @@ class DataProcessor(object):
         self.__date_dict[date_key].insert(transaction_amt)
         return self.__date_dict[date_key].get_running_median()
 
+    def __get_running_total_for_zip(self, zip_key):
+        assert zip_key in self.__zip_dict
+        return self.__zip_dict[zip_key].get_current_total()
+
+    def __get_transaction_count_for_zip(self, zip_key):
+        assert zip_key in self.__zip_dict
+        return self.__zip_dict[zip_key].size()
+
+    # Check if date string conforms to MMDDYYYY format
+    def __is_valid_date(self, date):
+        try:
+            time.strptime(date, '%m%d%Y')
+        except ValueError:
+            return False
+        return True
+
+    def __is_valid_zip(self, zip):
+        return len(zip) == 5
+
+    def __process_record_for_zip(self, cmte_id, zip, t_date, t_amt):
+        # Ignore record for invalid zip codes
+        if self.__is_valid_zip(zip):
+            by_zip_output_line = ""
+            by_zip_output_line += cmte_id + "|"
+            by_zip_output_line += zip + "|"
+
+            zip_key = cmte_id + '-' + zip
+
+            running_median_for_zip = self.__insert_by_zip(zip_key, int(t_amt))
+            current_total_for_zip = self.__get_running_total_for_zip(zip_key)
+            transaction_count_for_zip = self.__get_transaction_count_for_zip(zip_key)
+
+            by_zip_output_line += str(running_median_for_zip) + "|"
+            by_zip_output_line += str(transaction_count_for_zip) + "|"
+            by_zip_output_line += str(current_total_for_zip)
+
+#            print(by_zip_output_line, file=self.medians_by_zip_out)
+            print(by_zip_output_line)
+
+    def __process_record_for_date(self, cmte_id, zip, t_date, t_amt):
+        # Ignore record for invalid dates
+        if self.__is_valid_date(t_date):
+            ## Convert date from MMDDYYYY to YYYYMMDD to enable chronological sorting
+            MMDD = t_date[:4]
+            YYYY = t_date[4:]
+            t_date = YYYY + MMDD
+
+            ## NOTE: this date_key is the cmte_id concatenated with the YYYYMMDD
+            ## so that sorting this date_key in alphabetical order automatically
+            ## sorts first by cmte_id and then chronologically by date
+            date_key = cmte_id + '-' + t_date
+            self.__insert_by_date(date_key, int(t_amt))
+
+    def __generate_medianvals_by_date(self):
+        for key in sorted(self.__date_dict):
+            by_date_output_line = ""
+            cmte_id, date = key.split('-')
+
+            ## Convert date from YYYYMMDD to MMDDYYYY
+            MMDD = date[4:]
+            YYYY = date[:4]
+            date = MMDD + YYYY
+
+            by_date_output_line += cmte_id + "|"
+            by_date_output_line += date + "|"
+
+            running_median_for_date = self.__date_dict[key].get_running_median()
+            current_total_for_date = self.__date_dict[key].get_current_total()
+            transaction_count_for_date = self.__date_dict[key].size()
+
+            by_date_output_line += str(running_median_for_date) + "|"
+            by_date_output_line += str(transaction_count_for_date) + "|"
+            by_date_output_line += str(current_total_for_date)
+
+            print(by_date_output_line)
+
     def process(self):
         if self.__inputfile is None:
             print("Error: No file assigned!")
             return
 
         f = open(self.__inputfile, 'r')
+        self.medians_by_zip_out = open(self.__medianvals_by_zip_file, 'w')
+        self.medians_by_date_out = open(self.__medianvals_by_date_file, 'w')
+
         for line in f:
             columns = line.strip().split('|')
             cmte_id = columns[self.CMTE_ID_INDEX]
@@ -203,32 +291,20 @@ class DataProcessor(object):
             transaction_amt = columns[self.TRANSACTION_AMT_INDEX]
             other_id = columns[self.OTHER_ID_INDEX]
 
-            if other_id.strip() == '':      # Individual contributors only
-                print(cmte_id, zipcode, transaction_date, transaction_amt, other_id)
-                zip_key = cmte_id + '-' + zipcode
-                date_key = cmte_id + '-' + transaction_date
-                self.__insert_by_zip(zip_key, transaction_amt)
-                self.__insert_by_date(date_key, transaction_amt)
+
+            if other_id.strip() == '' and cmte_id != '' and transaction_amt != '':      # Individual contributors only and NULL checks
+                self.__process_record_for_zip(cmte_id, zipcode, transaction_date, transaction_amt)
+                self.__process_record_for_date(cmte_id, zipcode, transaction_date, transaction_amt)
+
+        self.__generate_medianvals_by_date()
+
+
+
 
 # Run code
 if len(sys.argv) != 4:
     print("Format: python ./src/find_political_donors.py ./input/itcont.txt ./output/medianvals_by_zip.txt ./output/medianvals_by_date.txt")
     exit(1)
 
-#processor = DataProcessor(sys.argv[1], sys.argv[2], sys.argv[3])
-#processor.process()
-
-rmc = RunningMedianCounter()
-for i in [1, 1, 2, 3, 5, 8, 13, 21, 34]:
-    rmc.insert(i)
-    rmc.print_heaps()
-    print(rmc.get_running_median())
-    print("\n")
-
-# h = Heap(0)
-# for i in [1, 1, 2, 3, 5]:
-#     h.insert(i)
-# h.printheap()
-# h.pop()
-# h.printheap()
-# h.insert(11)
+processor = DataProcessor(sys.argv[1], sys.argv[2], sys.argv[3])
+processor.process()
