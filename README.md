@@ -34,6 +34,7 @@ Initialize 2 dictionaries (`zip_dict` and `date_dict`):
 The reason for converting the date from MMDDYYYY to YYYYMMDD is that it easier to chronologically sort by date.
 
 `medianvals_by_zip.txt`: For every valid input record read, the `cmte_id`, `zip_code` along with the running median transaction amount, the total number of transactions and the current sum of the transactions are written to file.
+
 `medianvals_by_date.txt`: After processing of input completes, the dictionary keys (`date_keys`) are sorted in increasing order and for each key, the corresponding values of running median transaction amount, the total number of transactions and the current sum of the transactions are written to file.
 
 # Run Instructions
