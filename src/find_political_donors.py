@@ -182,7 +182,7 @@ class DataProcessor(object):
         self.__date_dict[date_key].insert(transaction_amt)
         return self.__date_dict[date_key].get_running_median()
 
-    # Check if date string conforms to MMDDYYYY format
+    # Check if date string conforms to MMDDYYYY format and is valid
     def __is_valid_date(self, date):
         try:
             time.strptime(date, '%m%d%Y')
@@ -257,13 +257,7 @@ class DataProcessor(object):
         self.medians_by_zip_out = open(self.__medianvals_by_zip_file, 'w')
         self.medians_by_date_out = open(self.__medianvals_by_date_file, 'w')
 
-        counter = 0
         for line in f:
-            counter += 1
-
-            if counter % 1000 == 0:
-                print(counter)
-
             columns = line.strip().split('|')
             cmte_id = columns[self.CMTE_ID_INDEX]
             zipcode = columns[self.ZIP_CODE_INDEX][:5]
