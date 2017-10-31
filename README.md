@@ -33,7 +33,8 @@ Initialize 2 dictionaries (`zip_dict` and `date_dict`):
 * `date_dict` is indexed by a combination of `cmte_id` and the YYYYMMDD format of the `transaction_date`. The value stored is again an instance of `RunningMedianCounter` which keeps track of the running median `transaction_amt` for that combination. For instance, for an input record having `CMTE_ID: C00629618, TRANSACTION_DT: 01032017`, the key would be `C00629618-20170103`.
 The reason for converting the date from MMDDYYYY to YYYYMMDD is that it easier to chronologically sort by date.
 
-
+`medianvals_by_zip.txt`: For every valid input record read, the `cmte_id`, `zip_code` along with the running median transaction amount, the total number of transactions and the current sum of the transactions are written to file.
+`medianvals_by_date.txt`: After processing of input completes, the dictionary keys (`date_keys`) are sorted in increasing order and for each key, the corresponding values of running median transaction amount, the total number of transactions and the current sum of the transactions are written to file.
 
 # Run Instructions
 Running is straightforward. Just run the top level run.sh script and output will be generated in the output/ folder.
