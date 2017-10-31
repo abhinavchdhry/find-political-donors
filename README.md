@@ -3,7 +3,7 @@
 2. [Run Instructions](README.md#run-instruction)
 
 # Approach
-### Running median using heaps
+### Computing running median using heaps: Efficient and scalable
 The algorithm to compute the running median uses a data structure consisting of 2 heaps: a min-heap which stores the smaller half of all values encountered and a max-heap which stores the larger half of all the values encountered, thus effectively bisecting the set of values at the middle.
 In case the total number of values is even, each heap will contain the same number of values. If the total number of values is odd, the size of th heaps will differ by 1. This property is maintained in the data structure in the following way:
 
