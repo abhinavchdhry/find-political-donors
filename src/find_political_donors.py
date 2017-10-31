@@ -152,8 +152,9 @@ class RunningMedianCounter(object):
         return self.__total
 
 
-
+# Class responsible for processing the input file and generating the output files
 class DataProcessor(object):
+
     # 0 based indices for the required columns
     CMTE_ID_INDEX = 0
     ZIP_CODE_INDEX = 10
@@ -168,6 +169,7 @@ class DataProcessor(object):
         self.__zip_dict = {}
         self.__date_dict = {}
 
+    # Insert a transaction_amt for a particular zip_key (cmte_id + zipcode)
     def __insert_by_zip(self, zip_key, transaction_amt):
        if zip_key not in self.__zip_dict:
            self.__zip_dict[zip_key] = RunningMedianCounter()
@@ -175,6 +177,7 @@ class DataProcessor(object):
        self.__zip_dict[zip_key].insert(transaction_amt)
        return self.__zip_dict[zip_key].get_running_median()
 
+    # Insert a transaction_amt for a particular date_key (cmte_id + zipcode)
     def __insert_by_date(self, date_key, transaction_amt):
         if date_key not in self.__date_dict:
             self.__date_dict[date_key] = RunningMedianCounter()
@@ -190,10 +193,12 @@ class DataProcessor(object):
             return False
         return True
 
+    # Zip is only valid if 5 digits are present when passed to this function
     def __is_valid_zip(self, zip):
         return len(zip) == 5
 
-    def __process_record_for_zip(self, cmte_id, zip, t_date, t_amt):
+    # Processes a record for a cmte_id + zip code combination
+    def __process_record_for_zip(self, cmte_id, zip, t_amt):
         # Ignore record for invalid zip codes
         if self.__is_valid_zip(zip):
             by_zip_output_line = ""
@@ -212,7 +217,8 @@ class DataProcessor(object):
 
             print(by_zip_output_line, file=self.medians_by_zip_out)
 
-    def __process_record_for_date(self, cmte_id, zip, t_date, t_amt):
+    # Processes a record for a cmte_id + transaction_date combination
+    def __process_record_for_date(self, cmte_id, t_date, t_amt):
         # Ignore record for invalid dates
         if self.__is_valid_date(t_date):
             # Convert date from MMDDYYYY to YYYYMMDD to enable chronological sorting
@@ -220,11 +226,13 @@ class DataProcessor(object):
             YYYY = t_date[4:]
             t_date = YYYY + MMDD
 
-            # NOTE: this date_key is the cmte_id concatenated with the YYYYMMDD so that sorting this date_key in
-            # alphabetical order automatically sorts first by cmte_id and then chronologically by date
             date_key = cmte_id + '-' + t_date
             self.__insert_by_date(date_key, int(t_amt))
 
+
+    # Generates the medianvals_by_date output file from the __date_dict by first sorting the dictionary on the key
+    # NOTE that this date_key is the cmte_id concatenated with the YYYYMMDD date, so sorting this date_key in
+    # alphabetical order automatically sorts first by cmte_id and then chronologically by date
     def __generate_medianvals_by_date(self):
         for key in sorted(self.__date_dict):
             by_date_output_line = ""
@@ -248,6 +256,7 @@ class DataProcessor(object):
 
             print(by_date_output_line, file = self.medians_by_date_out)
 
+    # Main processor function
     def process(self):
         if self.__inputfile is None:
             print("Error: No file assigned!")
@@ -267,8 +276,8 @@ class DataProcessor(object):
 
             # Process records for individual contributors only and non-NULL cmte_id and transaction_amt
             if other_id.strip() == '' and cmte_id != '' and transaction_amt != '':
-                self.__process_record_for_zip(cmte_id, zipcode, transaction_date, transaction_amt)
-                self.__process_record_for_date(cmte_id, zipcode, transaction_date, transaction_amt)
+                self.__process_record_for_zip(cmte_id, zipcode, transaction_amt)
+                self.__process_record_for_date(cmte_id, transaction_date, transaction_amt)
 
         self.__generate_medianvals_by_date()
         self.medians_by_zip_out.close()
